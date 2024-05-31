@@ -7,7 +7,7 @@ namespace Functions {
 	}
 
 	bool SearchItem(STATIC_ARGS, std::string a_name, std::string a_type) {
-		if (a_type.empty() || a_name.empty()) return false;
+		if (a_type.empty()) return false;
 
 		a_name = clib_util::string::tolower(a_name);
 		a_type = clib_util::string::tolower(a_type);

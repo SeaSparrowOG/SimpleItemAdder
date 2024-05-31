@@ -175,7 +175,7 @@ namespace Container {
 
 		for (auto& item : *target) {
 			auto lowerName = clib_util::string::tolower(item.first);
-			if (!lowerName.contains(a_name)) continue;
+			if (!lowerName.contains(a_name) && !a_name.empty()) continue;
 			for (auto* obj : item.second) {
 				
 				if (a_type == kWeapon || a_type == kArmor) {
