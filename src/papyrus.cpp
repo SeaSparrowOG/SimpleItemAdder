@@ -71,8 +71,6 @@ namespace {
 	template <typename T>
 	void FillMap(std::unordered_map<std::string, std::vector<RE::TESBoundObject*>>* currentMap) {
 		auto& itemArray = RE::TESDataHandler::GetSingleton()->GetFormArray<T>();
-		uint32_t successes = 0;
-		uint32_t failures = 0;
 
 		for (T* obj : itemArray) {
 			auto* boundObject = static_cast<RE::TESBoundObject*>(obj);
@@ -100,36 +98,62 @@ namespace Papyrus {
 	bool Papyrus::Papyrus::InitializeMaps() {
 		FillMap<RE::TESObjectWEAP>(&this->weaponMap);
 		FillMap<RE::TESObjectARMO>(&this->armorMap);
-		_loggerInfo("Loaded weapons, armors, books, and ingredients.");
+		_loggerInfo("Loaded forms.");
 		InitializeINI();
 		return true;
 	}
 
+	void Papyrus::ToggleSetting(std::string a_settingName) {
+		if (a_settingName == "UniqueEnchants") {
+			this->onlyUniqueEnchantments = !this->onlyUniqueEnchantments;
+		}
+		else if (a_settingName == "ShowEnchants") {
+			this->showEnchants = !this->showEnchants;
+		}
+	}
+
 	bool Papyrus::SearchItem(std::string a_name, QueryType a_type) {
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> target;
+		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>>* target = nullptr;
 
 		switch (a_type) {
 		case kWeapon:
-			target = this->weaponMap;
+			target = &this->weaponMap;
 			break;
 		case kArmor:
-			target = this->armorMap;
+			target = &this->armorMap;
+			break;
+		case kBook:
+			target = &this->bookMap;
 			break;
 		default:
-			break;
+			return false;
 		}
 
 		if (!this->container) {
-			_loggerInfo("Missing container");
 			return false;
 		}
 
 		std::vector<RE::TESBoundObject*> vectorResult{};
+		std::vector<RE::EnchantmentItem*> foundEnchantments{};
 		this->container->ResetInventory(false);
-		for (auto& item : target) {
+		for (auto& item : *target) {
 			auto lowerName = clib_util::string::tolower(item.first);
 			if (!lowerName.contains(a_name)) continue;
 			for (auto* obj : item.second) {
+				
+				if (a_type == kWeapon || a_type == kArmor) {
+					auto* weapForm = obj->As<RE::TESObjectWEAP>();
+					auto* armorForm = obj->As<RE::TESObjectARMO>();
+					auto* enchantment = armorForm ? armorForm->formEnchanting : weapForm ? weapForm->formEnchanting : nullptr;
+					if (enchantment && !this->showEnchants) continue;
+					if (enchantment && this->onlyUniqueEnchantments) {
+						if (std::find(foundEnchantments.begin(), foundEnchantments.end(), enchantment) != foundEnchantments.end()) {
+							continue;
+						}
+						foundEnchantments.push_back(enchantment);
+					}
+				}
+				
 				vectorResult.push_back(obj);
 				this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
 			}
@@ -149,6 +173,10 @@ namespace Papyrus {
 		if (!containerBaseForm) return;
 		_loggerInfo("Successfully validated container {}~{}", a_id, a_modName);
 		this->container = reference;
+	}
+
+	void ToggleSetting(STATIC_ARGS, std::string a_setting) {
+		Papyrus::GetSingleton()->ToggleSetting(a_setting);
 	}
 
 	bool SearchItem(STATIC_ARGS, std::string a_name, std::string a_type) {
@@ -171,6 +199,8 @@ namespace Papyrus {
 
 	void Bind(VM& a_vm) {
 		BIND(SearchItem);
+		BIND(ToggleSetting);
+		_loggerInfo("Bound papyrus functions.");
 	}
 
 	bool RegisterFunctions(VM* a_vm) {
