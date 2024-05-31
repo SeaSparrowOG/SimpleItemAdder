@@ -1,0 +1,7 @@
+C:/Projects/Github/SimpleItemAdder/build/CMakeFiles/SimpleItemAdder.dir
+C:/Projects/Github/SimpleItemAdder/build/CMakeFiles/INSTALL.dir
+C:/Projects/Github/SimpleItemAdder/build/CMakeFiles/ALL_BUILD.dir
+C:/Projects/Github/SimpleItemAdder/build/CMakeFiles/ZERO_CHECK.dir
+C:/Projects/Github/SimpleItemAdder/build/CommonLibSSE/CMakeFiles/CommonLibSSE.dir
+C:/Projects/Github/SimpleItemAdder/build/CommonLibSSE/CMakeFiles/INSTALL.dir
+C:/Projects/Github/SimpleItemAdder/build/CommonLibSSE/CMakeFiles/ALL_BUILD.dir
