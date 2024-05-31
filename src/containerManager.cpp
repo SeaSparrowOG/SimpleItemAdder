@@ -1,4 +1,4 @@
-#include "papyrus.h"
+#include "containerManager.h"
 
 namespace {
 	bool IsHex(std::string const& s) {
@@ -64,7 +64,7 @@ namespace {
 		const char* id = ini.GetValue("General", "iContainerID", "0x802");
 		const char* name = ini.GetValue("General", "sModName", "SimpleItemAdder.esp");
 
-		Papyrus::Papyrus::GetSingleton()->SetContainer(id, name);
+		Container::Manager::GetSingleton()->SetContainer(id, name);
 		return true;
 	}
 
@@ -94,8 +94,8 @@ namespace {
 	}
 }
 
-namespace Papyrus {
-	bool Papyrus::Papyrus::InitializeMaps() {
+namespace Container {
+	bool Manager::InitializeMaps() {
 		FillMap<RE::TESObjectWEAP>(&this->weaponMap);
 		FillMap<RE::TESObjectARMO>(&this->armorMap);
 		_loggerInfo("Loaded forms.");
@@ -103,16 +103,26 @@ namespace Papyrus {
 		return true;
 	}
 
-	void Papyrus::ToggleSetting(std::string a_settingName) {
-		if (a_settingName == "UniqueEnchants") {
+	void Manager::ToggleSetting(std::string a_settingName) {
+		a_settingName = clib_util::string::tolower(a_settingName);
+
+		if (a_settingName == "unique") {
 			this->onlyUniqueEnchantments = !this->onlyUniqueEnchantments;
 		}
-		else if (a_settingName == "ShowEnchants") {
+		else if (a_settingName == "enchanted") {
 			this->showEnchants = !this->showEnchants;
+		}
+		else if (a_settingName == "onlyenchanted") {
+			this->onlyEnchants = true;
+		}
+		else if (a_settingName == "reset") {
+			this->onlyUniqueEnchantments = false;
+			this->onlyEnchants = false;
+			this->showEnchants = true;
 		}
 	}
 
-	bool Papyrus::SearchItem(std::string a_name, QueryType a_type) {
+	bool Manager::SearchItem(std::string a_name, QueryType a_type) {
 		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>>* target = nullptr;
 
 		switch (a_type) {
@@ -136,6 +146,7 @@ namespace Papyrus {
 		std::vector<RE::TESBoundObject*> vectorResult{};
 		std::vector<RE::EnchantmentItem*> foundEnchantments{};
 		this->container->ResetInventory(false);
+
 		for (auto& item : *target) {
 			auto lowerName = clib_util::string::tolower(item.first);
 			if (!lowerName.contains(a_name)) continue;
@@ -145,6 +156,13 @@ namespace Papyrus {
 					auto* weapForm = obj->As<RE::TESObjectWEAP>();
 					auto* armorForm = obj->As<RE::TESObjectARMO>();
 					auto* enchantment = armorForm ? armorForm->formEnchanting : weapForm ? weapForm->formEnchanting : nullptr;
+					if (enchantment) {
+						auto* baseEnchant = enchantment->data.baseEnchantment;
+						if (baseEnchant) {
+							enchantment = baseEnchant;
+						}
+					}
+					if (!enchantment && this->onlyEnchants) continue;
 					if (enchantment && !this->showEnchants) continue;
 					if (enchantment && this->onlyUniqueEnchantments) {
 						if (std::find(foundEnchantments.begin(), foundEnchantments.end(), enchantment) != foundEnchantments.end()) {
@@ -166,45 +184,12 @@ namespace Papyrus {
 		return true;
 	}
 
-	void Papyrus::SetContainer(std::string a_id, std::string a_modName) {
+	void Manager::SetContainer(std::string a_id, std::string a_modName) {
 		auto* form = GetFormFromMod(a_id, a_modName);
 		auto* reference = form ? form->As<RE::TESObjectREFR>() : nullptr;
 		auto* containerBaseForm = reference ? reference->GetBaseObject() ? reference->GetBaseObject()->As<RE::TESObjectCONT>()  : nullptr : nullptr;
 		if (!containerBaseForm) return;
 		_loggerInfo("Successfully validated container {}~{}", a_id, a_modName);
 		this->container = reference;
-	}
-
-	void ToggleSetting(STATIC_ARGS, std::string a_setting) {
-		Papyrus::GetSingleton()->ToggleSetting(a_setting);
-	}
-
-	bool SearchItem(STATIC_ARGS, std::string a_name, std::string a_type) {
-		if (a_type.empty() || a_name.empty()) return false;
-
-		a_name = clib_util::string::tolower(a_name);
-		a_type = clib_util::string::tolower(a_type);
-
-		QueryType query = kAll;
-		if (a_type == "armo") {
-			query = kArmor;
-		}
-		else if (a_type == "weap") {
-			query = kWeapon;
-		}
-		if (query == kAll) return false;
-
-		return Papyrus::GetSingleton()->SearchItem(a_name, query);
-	}
-
-	void Bind(VM& a_vm) {
-		BIND(SearchItem);
-		BIND(ToggleSetting);
-		_loggerInfo("Bound papyrus functions.");
-	}
-
-	bool RegisterFunctions(VM* a_vm) {
-		Bind(*a_vm);
-		return true;
 	}
 }

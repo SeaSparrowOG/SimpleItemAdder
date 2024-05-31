@@ -1,4 +1,5 @@
 set(headers ${headers}
 	include/PCH.h
-	include/papyrus.h
+	include/containerManager.h
+	include/papyrusFunctions.h
 )

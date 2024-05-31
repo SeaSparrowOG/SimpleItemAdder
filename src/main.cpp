@@ -1,4 +1,4 @@
-#include "papyrus.h"
+#include "papyrusFunctions.h"
 
 void SetupLog() {
     auto logsFolder = SKSE::log::log_directory();
@@ -22,8 +22,8 @@ void MessageHandler(SKSE::MessagingInterface::Message* a_message) {
     const auto papyrus = SKSE::GetPapyrusInterface();
     switch (a_message->type) {
     case SKSE::MessagingInterface::kDataLoaded:
-        Papyrus::Papyrus::GetSingleton()->InitializeMaps();
-        papyrus->Register(Papyrus::RegisterFunctions);
+        Container::Manager::GetSingleton()->InitializeMaps();
+        papyrus->Register(Functions::RegisterFunctions);
         break;
     default:
         break;
