@@ -136,6 +136,9 @@ namespace Container {
 			this->onlyEnchants = false;
 			this->onlySpellbooks = false;
 			this->showEnchants = true;
+			this->onlyFood = false;
+			this->onlyPoisons = false;
+			this->onlyPotions = false;
 		}
 	}
 
