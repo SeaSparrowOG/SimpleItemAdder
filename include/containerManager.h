@@ -7,6 +7,7 @@ namespace Container {
 		kBook,
 		kMisc,
 		kIngredient,
+		kConsumable,
 		kAll
 	};
 
@@ -23,6 +24,7 @@ namespace Container {
 		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> bookMap;
 		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> miscMap;
 		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> ingredientMap;
+		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> consumableMap;
 		RE::TESObjectREFR* container;
 
 		//Filters
@@ -30,5 +32,8 @@ namespace Container {
 		bool onlyUniqueEnchantments{ false };
 		bool onlyEnchants{ false };
 		bool onlySpellbooks{ false };
+		bool onlyFood{ false };
+		bool onlyPotions{ false };
+		bool onlyPoisons{ false };
 	};
 }

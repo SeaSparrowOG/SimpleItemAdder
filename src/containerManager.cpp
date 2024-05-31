@@ -99,6 +99,9 @@ namespace Container {
 		FillMap<RE::TESObjectWEAP>(&this->weaponMap);
 		FillMap<RE::TESObjectARMO>(&this->armorMap);
 		FillMap<RE::TESObjectBOOK>(&this->bookMap);
+		FillMap<RE::IngredientItem>(&this->ingredientMap);
+		FillMap<RE::TESObjectMISC>(&this->miscMap);
+		FillMap<RE::AlchemyItem>(&this->consumableMap);
 		_loggerInfo("Loaded forms.");
 		InitializeINI();
 		return true;
@@ -118,6 +121,15 @@ namespace Container {
 		}
 		else if (a_settingName == "onlyspelltomes") {
 			this->onlySpellbooks = !this->onlySpellbooks;
+		}
+		else if (a_settingName == "onlypotions") {
+			this->onlyPotions = !this->onlyPotions;
+		}
+		else if (a_settingName == "onlypoisons") {
+			this->onlyPoisons = !this->onlyPoisons;
+		}
+		else if (a_settingName == "onlyfood") {
+			this->onlyFood = !this->onlyFood;
 		}
 		else if (a_settingName == "reset") {
 			this->onlyUniqueEnchantments = false;
@@ -139,6 +151,15 @@ namespace Container {
 			break;
 		case kBook:
 			target = &this->bookMap;
+			break;
+		case kIngredient:
+			target = &this->ingredientMap;
+			break;
+		case kMisc:
+			target = &this->miscMap;
+			break;
+		case kConsumable:
+			target = &this->consumableMap;
 			break;
 		default:
 			return false;
@@ -187,6 +208,18 @@ namespace Container {
 						continue;
 					}
 				}
+
+				if (a_type == kConsumable) {
+					auto* consumable = obj->As<RE::AlchemyItem>();
+					bool isPoison = consumable->IsPoison();
+					bool isPotion = !consumable->IsFood() && !isPoison;
+					bool isFood = !(isPotion && isPoison);
+
+					if (this->onlyFood && !isFood) continue;
+					if (this->onlyPoisons && !isPoison) continue;
+					if (this->onlyPotions && !isPotion) continue;
+				}
+
 				vectorResult.push_back(obj);
 				this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
 			}

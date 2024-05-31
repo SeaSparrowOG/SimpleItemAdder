@@ -22,6 +22,15 @@ namespace Functions {
 		else if (a_type == "book") {
 			query = Container::QueryType::kBook;
 		}
+		else if (a_type == "ingr") {
+			query = Container::QueryType::kIngredient;
+		}
+		else if (a_type == "misc") {
+			query = Container::QueryType::kMisc;
+		}
+		else if (a_type == "alci") {
+			query = Container::QueryType::kConsumable;
+		}
 
 		if (query == Container::QueryType::kAll) return false;
 
