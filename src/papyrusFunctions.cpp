@@ -19,6 +19,10 @@ namespace Functions {
 		else if (a_type == "weap") {
 			query = Container::QueryType::kWeapon;
 		}
+		else if (a_type == "book") {
+			query = Container::QueryType::kBook;
+		}
+
 		if (query == Container::QueryType::kAll) return false;
 
 		return Container::Manager::GetSingleton()->SearchItem(a_name, query);

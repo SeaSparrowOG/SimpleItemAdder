@@ -98,6 +98,7 @@ namespace Container {
 	bool Manager::InitializeMaps() {
 		FillMap<RE::TESObjectWEAP>(&this->weaponMap);
 		FillMap<RE::TESObjectARMO>(&this->armorMap);
+		FillMap<RE::TESObjectBOOK>(&this->bookMap);
 		_loggerInfo("Loaded forms.");
 		InitializeINI();
 		return true;
@@ -115,9 +116,13 @@ namespace Container {
 		else if (a_settingName == "onlyenchanted") {
 			this->onlyEnchants = true;
 		}
+		else if (a_settingName == "onlyspelltomes") {
+			this->onlySpellbooks = !this->onlySpellbooks;
+		}
 		else if (a_settingName == "reset") {
 			this->onlyUniqueEnchantments = false;
 			this->onlyEnchants = false;
+			this->onlySpellbooks = false;
 			this->showEnchants = true;
 		}
 	}
@@ -155,6 +160,11 @@ namespace Container {
 				if (a_type == kWeapon || a_type == kArmor) {
 					auto* weapForm = obj->As<RE::TESObjectWEAP>();
 					auto* armorForm = obj->As<RE::TESObjectARMO>();
+
+					bool playable = weapForm ? weapForm->GetPlayable() : true;
+					playable = playable && armorForm ? armorForm->GetPlayable() : true;
+					if (!playable) continue;
+
 					auto* enchantment = armorForm ? armorForm->formEnchanting : weapForm ? weapForm->formEnchanting : nullptr;
 					if (enchantment) {
 						auto* baseEnchant = enchantment->data.baseEnchantment;
@@ -172,6 +182,11 @@ namespace Container {
 					}
 				}
 				
+				if (a_type == kBook) {
+					if (this->onlySpellbooks && !obj->As<RE::TESObjectBOOK>()->TeachesSpell()) {
+						continue;
+					}
+				}
 				vectorResult.push_back(obj);
 				this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
 			}

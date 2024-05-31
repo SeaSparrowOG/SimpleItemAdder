@@ -29,5 +29,6 @@ namespace Container {
 		bool showEnchants{ true };
 		bool onlyUniqueEnchantments{ false };
 		bool onlyEnchants{ false };
+		bool onlySpellbooks{ false };
 	};
 }
