@@ -100,8 +100,6 @@ namespace Papyrus {
 	bool Papyrus::Papyrus::InitializeMaps() {
 		FillMap<RE::TESObjectWEAP>(&this->weaponMap);
 		FillMap<RE::TESObjectARMO>(&this->armorMap);
-		FillMap<RE::TESObjectBOOK>(&this->miscMap);
-		FillMap<RE::IngredientItem>(&this->ingredientMap);
 		_loggerInfo("Loaded weapons, armors, books, and ingredients.");
 		InitializeINI();
 		return true;
@@ -116,15 +114,6 @@ namespace Papyrus {
 			break;
 		case kArmor:
 			target = this->armorMap;
-			break;
-		case kBook:
-			target = this->bookMap;
-			break;
-		case kMisc:
-			target = this->miscMap;
-			break;
-		case kIngredient:
-			target = this->ingredientMap;
 			break;
 		default:
 			break;
