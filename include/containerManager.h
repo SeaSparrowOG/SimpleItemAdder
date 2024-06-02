@@ -18,6 +18,7 @@ namespace Container {
 		void ToggleSetting(std::string a_settingName);
 		bool SearchItem(std::string a_name, QueryType a_type = kAll);
 		void SetContainer(std::string a_id, std::string a_modName);
+		void SetMaxContainerItems(size_t a_num);
 		void SetQuest(std::string a_id, std::string a_modName);
 
 	private:

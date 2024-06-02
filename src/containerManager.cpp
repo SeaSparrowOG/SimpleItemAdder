@@ -27,7 +27,7 @@ namespace {
 
 	bool ShouldRebuildINI(CSimpleIniA* a_ini) {
 		const char* section = "General";
-		const char* keys[] = { "iContainerID", "iQuestID", "sModName" };
+		const char* keys[] = { "iContainerID", "iQuestID", "sModName", "iMaxDisplayItems" };
 		int sectionLength = sizeof(keys) / sizeof(keys[0]);
 		std::list<CSimpleIniA::Entry> keyHolder;
 
@@ -47,6 +47,7 @@ namespace {
 			createdINI.open(f, std::ios::out);
 			createdINI.close();
 			createEntries = true;
+			_loggerInfo("Created INI file because it was missing. Values will be created shortly.");
 		}
 
 		CSimpleIniA ini;
@@ -57,17 +58,21 @@ namespace {
 		if (createEntries) {
 			ini.Delete("General", NULL);
 			ini.SetValue("General", "iContainerID", "0x802", ";The ID of the container to drop the items in.");
-			ini.SetValue("General", "iQuestID", "0x803", ";The ID of the quest that handles event dispatching.");
+			ini.SetValue("General", "iQuestID", "0xD67", ";The ID of the quest that handles event dispatching.");
+			ini.SetLongValue("General", "iMaxDisplayItems", 250, ";The maximum number of results to display. Must be between 50 and 1000.");
 			ini.SetValue("General", "sModName", "SimpleItemAdder.esp", ";The name of the mod with the above forms.");
 			ini.SaveFile(f.c_str());
+			_loggerInfo("Set values for INI file because one or more were invalid or missing.");
 		}
 
 		const char* id = ini.GetValue("General", "iContainerID", "0x802");
 		const char* questID = ini.GetValue("General", "iQuestID", "0xD67");
+		auto maxResults = ini.GetLongValue("General", "iMaxDisplayItems", 250);
 		const char* name = ini.GetValue("General", "sModName", "SimpleItemAdder.esp");
 
 		Container::Manager::GetSingleton()->SetContainer(id, name);
 		Container::Manager::GetSingleton()->SetQuest(questID, name);
+		Container::Manager::GetSingleton()->SetMaxContainerItems(maxResults);
 		return true;
 	}
 
@@ -335,7 +340,10 @@ namespace Container {
 		auto* form = GetFormFromMod(a_id, a_modName);
 		auto* reference = form ? form->As<RE::TESObjectREFR>() : nullptr;
 		auto* containerBaseForm = reference ? reference->GetBaseObject() ? reference->GetBaseObject()->As<RE::TESObjectCONT>()  : nullptr : nullptr;
-		if (!containerBaseForm) return;
+		if (!containerBaseForm) {
+			SKSE::log::error("Failed to find a suitable container with this signature: {}~{}", a_id, a_modName);
+			return;
+		}
 		_loggerInfo("Successfully validated container {}~{}", a_id, a_modName);
 		this->container = reference;
 	}
@@ -343,8 +351,18 @@ namespace Container {
 	void Container::Manager::SetQuest(std::string a_id, std::string a_modName) {
 		auto* form = GetFormFromMod(a_id, a_modName);
 		auto* foundQuest = form ? form->As<RE::TESQuest>() : nullptr;
-		if (!foundQuest) return;
+		if (!foundQuest) {
+			SKSE::log::error("Failed to find a suitable quest with this signature: {}~{}", a_id, a_modName);
+			return;
+		}
 		_loggerInfo("Successfully validated quest {}~{}", a_id, a_modName);
 		this->quest = foundQuest;
+	}
+
+	void Container::Manager::SetMaxContainerItems(size_t a_num) {
+		if (a_num < 50) a_num = 50;
+		if (a_num > 1000) a_num = 1000;
+		this->maxResults = a_num;
+		_loggerInfo("Set max results to {}.", a_num);
 	}
 }

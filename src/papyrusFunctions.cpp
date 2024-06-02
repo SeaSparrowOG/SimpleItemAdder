@@ -50,6 +50,7 @@ namespace Functions {
 		BIND(ToggleSetting);
 		BIND(GetSimpleItemAdderVersion);
 		BIND(DisplayPage);
+		_loggerInfo("Bound papyrus functions.");
 	}
 
 	bool RegisterFunctions(VM* a_vm) {
