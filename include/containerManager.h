@@ -18,6 +18,7 @@ namespace Container {
 		void ToggleSetting(std::string a_settingName);
 		bool SearchItem(std::string a_name, QueryType a_type = kAll);
 		void SetContainer(std::string a_id, std::string a_modName);
+		void SetCount(int32_t a_newCount);
 		void SetMaxContainerItems(size_t a_num);
 		void SetQuest(std::string a_id, std::string a_modName);
 
@@ -44,5 +45,6 @@ namespace Container {
 		std::vector<RE::TESBoundObject*> vectorResult;
 		size_t displayPage{ 0 };
 		size_t maxResults{ 250 };
+		int32_t count{ 1 };
 	};
 }

@@ -47,6 +47,17 @@ namespace Functions {
 		Container::Manager::GetSingleton()->DisplayPage(pageNum);
 	}
 
+	void UpdateCount(STATIC_ARGS, std::string a_count) {
+		if (!clib_util::string::is_only_digit(a_count)) return;
+
+		int32_t count = 0;
+		std::stringstream stream(a_count);
+		stream >> count;
+		if (count < 1) count = 1;
+		if (count > 100) count = 100;
+		Container::Manager::GetSingleton()->SetCount(count);
+	}
+
 	std::vector<int> GetSimpleItemAdderVersion(STATIC_ARGS) {
 		return { Version::MAJOR, Version::MINOR, Version::PATCH };
 	}
@@ -56,6 +67,7 @@ namespace Functions {
 		BIND(ToggleSetting);
 		BIND(GetSimpleItemAdderVersion);
 		BIND(DisplayPage);
+		BIND(UpdateCount);
 		_loggerInfo("Bound papyrus functions.");
 	}
 

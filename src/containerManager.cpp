@@ -275,7 +275,7 @@ namespace Container {
 		for (;vectorStart <= vectorEnd; ++vectorStart) {
 			auto* obj = vectorResult.at(vectorStart);
 			if (!obj) continue;
-			this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
+			this->container->AddObjectToContainer(obj, nullptr, count, nullptr);
 		}
 
 		for (auto& foundScript : vm->attachedScripts.find(handle)->second) {
@@ -312,7 +312,7 @@ namespace Container {
 		for (;vectorStart <= vectorEnd; ++vectorStart) {
 			auto* obj = vectorResult.at(vectorStart);
 			if (!obj) continue;
-			this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
+			this->container->AddObjectToContainer(obj, nullptr, count, nullptr);
 		}
 
 		auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
@@ -346,6 +346,10 @@ namespace Container {
 		}
 		_loggerInfo("Successfully validated container {}~{}", a_id, a_modName);
 		this->container = reference;
+	}
+
+	void Container::Manager::SetCount(int32_t a_newCount) {
+		this->count = a_newCount;
 	}
 
 	void Container::Manager::SetQuest(std::string a_id, std::string a_modName) {
