@@ -37,8 +37,14 @@ namespace Functions {
 		return Container::Manager::GetSingleton()->SearchItem(a_name, query);
 	}
 
-	void DisplayPage(STATIC_ARGS, int a_page) {
-		Container::Manager::GetSingleton()->DisplayPage(a_page);
+	void DisplayPage(STATIC_ARGS, std::string a_page) {
+		if (!clib_util::string::is_only_digit(a_page)) return;
+
+		size_t pageNum = 0;
+		std::stringstream stream(a_page);
+		stream >> pageNum;
+		if (pageNum < 1) pageNum = 1;
+		Container::Manager::GetSingleton()->DisplayPage(pageNum);
 	}
 
 	std::vector<int> GetSimpleItemAdderVersion(STATIC_ARGS) {
