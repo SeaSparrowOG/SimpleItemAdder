@@ -37,9 +37,14 @@ namespace Functions {
 		return Container::Manager::GetSingleton()->SearchItem(a_name, query);
 	}
 
+	std::vector<int> GetSimpleItemAdderVersion(STATIC_ARGS) {
+		return { Version::MAJOR, Version::MINOR, Version::PATCH };
+	}
+
 	void Bind(VM& a_vm) {
 		BIND(SearchItem);
 		BIND(ToggleSetting);
+		BIND(GetSimpleItemAdderVersion);
 	}
 
 	bool RegisterFunctions(VM* a_vm) {
