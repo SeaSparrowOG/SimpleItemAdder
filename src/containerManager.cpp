@@ -27,7 +27,7 @@ namespace {
 
 	bool ShouldRebuildINI(CSimpleIniA* a_ini) {
 		const char* section = "General";
-		const char* keys[] = { "iContainerID", "sModName" };
+		const char* keys[] = { "iContainerID", "iQuestID", "sModName" };
 		int sectionLength = sizeof(keys) / sizeof(keys[0]);
 		std::list<CSimpleIniA::Entry> keyHolder;
 
@@ -56,15 +56,18 @@ namespace {
 
 		if (createEntries) {
 			ini.Delete("General", NULL);
-			ini.SetValue("General", "iContainerID", "0x802", ";If a reference does not have a location specified, search this distance for a marker with a location to substitute.");
-			ini.SetValue("General", "sModName", "SimpleItemAdder.esp", ";If a reference does not have a location specified, search this distance for a marker with a location to substitute.");
+			ini.SetValue("General", "iContainerID", "0x802", ";The ID of the container to drop the items in.");
+			ini.SetValue("General", "iQuestID", "0x803", ";The ID of the quest that handles event dispatching.");
+			ini.SetValue("General", "sModName", "SimpleItemAdder.esp", ";The name of the mod with the above forms.");
 			ini.SaveFile(f.c_str());
 		}
 
 		const char* id = ini.GetValue("General", "iContainerID", "0x802");
+		const char* questID = ini.GetValue("General", "iQuestID", "0xD67");
 		const char* name = ini.GetValue("General", "sModName", "SimpleItemAdder.esp");
 
 		Container::Manager::GetSingleton()->SetContainer(id, name);
+		Container::Manager::GetSingleton()->SetQuest(questID, name);
 		return true;
 	}
 
@@ -143,8 +146,10 @@ namespace Container {
 	}
 
 	bool Manager::SearchItem(std::string a_name, QueryType a_type) {
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>>* target = nullptr;
+		if (!this->quest || !this->container) return false;
 
+		this->vectorResult.clear();
+		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>>* target = nullptr;
 		switch (a_type) {
 		case kWeapon:
 			target = &this->weaponMap;
@@ -167,12 +172,36 @@ namespace Container {
 		default:
 			return false;
 		}
+		
+		//VM Check. If we can't find the manager script, abort.
+		auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+		auto* handlePolicy = vm->GetObjectHandlePolicy();
+		if (!handlePolicy) return false;
+		RE::VMHandle handle = handlePolicy->GetHandleForObject(this->quest->GetFormType(), quest);
+		if (!handle) return false;
 
-		if (!this->container) {
-			return false;
+		//Add the name, type, and container result to the script.
+		bool succeeded = false;
+		for (auto& foundScript : vm->attachedScripts.find(handle)->second) {
+			if (!foundScript) continue;
+			if (!foundScript->GetTypeInfo()) continue;
+			if (foundScript->GetTypeInfo()->GetName() != "SAM_ManagerQuestScript"sv) continue;
+
+			auto* searchNameVar = foundScript->GetProperty("Name");
+			auto* searchTypeVar = foundScript->GetProperty("Type");
+			auto* searchContVar = foundScript->GetProperty("FrameworkContainer");
+			if (!searchNameVar || !searchTypeVar || !searchContVar) continue;
+
+			RE::BSScript::PackValue(searchContVar, this->container);
+			RE::BSScript::PackValue(searchNameVar, a_name);
+			RE::BSScript::PackValue(searchTypeVar, a_type);
+
+			succeeded = true;
+			break;
 		}
+		if (!succeeded) return false;
 
-		std::vector<RE::TESBoundObject*> vectorResult{};
+		//Note: Sometimes, result is too large. Putthing THOUSANDS of objects in a container is very slow.
 		std::vector<RE::EnchantmentItem*> foundEnchantments{};
 		this->container->ResetInventory(false);
 
@@ -223,16 +252,84 @@ namespace Container {
 					if (this->onlyPotions && !isPotion) continue;
 				}
 
-				vectorResult.push_back(obj);
-				this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
+				this->vectorResult.push_back(obj);
 			}
 		}
-		if (vectorResult.empty()) {
+		
+		if (this->vectorResult.empty()) {
 			return false;
 		}
 
-		this->container->ActivateRef(RE::PlayerCharacter::GetSingleton()->AsReference(), 0, nullptr, 0, false);
+		size_t vectorStart = 0;
+		size_t vectorEnd = vectorResult.size() - 1;
+		if (this->vectorResult.size() > this->maxResults) {
+			vectorEnd = vectorStart + this->maxResults - 1;
+			if (vectorEnd > vectorResult.size()) vectorEnd = vectorResult.size() - 1;
+		}
+
+		_loggerInfo("----------------\nSize: {}\nStart: {}\nEnd: {}\n----------------", vectorResult.size(), vectorStart, vectorEnd);
+		for (;vectorStart < vectorEnd; ++vectorStart) {
+			auto* obj = vectorResult.at(vectorStart);
+			if (!obj) continue;
+			this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
+		}
+
+		for (auto& foundScript : vm->attachedScripts.find(handle)->second) {
+			if (!foundScript) continue;
+			if (!foundScript->GetTypeInfo()) continue;
+			if (foundScript->GetTypeInfo()->GetName() != "SAM_ManagerQuestScript"sv) continue;
+
+			auto callback = RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor>();
+			auto args = RE::MakeFunctionArguments();
+			const RE::BSFixedString functionName = "BeginCountdown"sv;
+			auto scriptObject = foundScript.get();
+			auto object = RE::BSTSmartPointer<RE::BSScript::Object>(scriptObject);
+			vm->DispatchMethodCall(object, functionName, args, callback);
+			break;
+		}
 		return true;
+	}
+
+	void Manager::DisplayPage(uint64_t a_pageNum) {
+		if (!quest || !container) return;
+		this->container->ResetInventory(false);
+		if (a_pageNum > 1000) a_pageNum = 1000;
+
+		auto vectorSize = this->vectorResult.size();
+		size_t vectorStart = 0;
+		size_t vectorEnd = vectorResult.size();
+		if (vectorEnd > this->maxResults - 1) {
+			vectorStart = a_pageNum * this->maxResults;
+			vectorEnd = vectorStart + this->maxResults - 1;
+			if (vectorEnd > vectorSize) vectorEnd = vectorSize - 1;
+		}
+
+		for (;vectorStart < vectorEnd; ++vectorStart) {
+			auto* obj = vectorResult.at(vectorStart);
+			if (!obj) continue;
+			this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
+		}
+
+		_loggerInfo("----------------\nSize: {}\nStart: {}\nEnd: {}\n----------------", vectorSize, vectorStart, vectorEnd);
+		auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
+		auto* handlePolicy = vm->GetObjectHandlePolicy();
+		if (!handlePolicy) return;
+		RE::VMHandle handle = handlePolicy->GetHandleForObject(this->quest->GetFormType(), quest);
+		if (!handle) return;
+
+		for (auto& foundScript : vm->attachedScripts.find(handle)->second) {
+			if (!foundScript) continue;
+			if (!foundScript->GetTypeInfo()) continue;
+			if (foundScript->GetTypeInfo()->GetName() != "SAM_ManagerQuestScript"sv) continue;
+
+			auto callback = RE::BSTSmartPointer<RE::BSScript::IStackCallbackFunctor>();
+			auto args = RE::MakeFunctionArguments();
+			const RE::BSFixedString functionName = "BeginCountdown"sv;
+			auto scriptObject = foundScript.get();
+			auto object = RE::BSTSmartPointer<RE::BSScript::Object>(scriptObject);
+			vm->DispatchMethodCall(object, functionName, args, callback);
+			break;
+		}
 	}
 
 	void Manager::SetContainer(std::string a_id, std::string a_modName) {
@@ -242,5 +339,13 @@ namespace Container {
 		if (!containerBaseForm) return;
 		_loggerInfo("Successfully validated container {}~{}", a_id, a_modName);
 		this->container = reference;
+	}
+
+	void Container::Manager::SetQuest(std::string a_id, std::string a_modName) {
+		auto* form = GetFormFromMod(a_id, a_modName);
+		auto* foundQuest = form ? form->As<RE::TESQuest>() : nullptr;
+		if (!foundQuest) return;
+		_loggerInfo("Successfully validated quest {}~{}", a_id, a_modName);
+		this->quest = foundQuest;
 	}
 }

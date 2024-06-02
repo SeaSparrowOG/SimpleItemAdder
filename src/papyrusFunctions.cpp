@@ -37,6 +37,10 @@ namespace Functions {
 		return Container::Manager::GetSingleton()->SearchItem(a_name, query);
 	}
 
+	void DisplayPage(STATIC_ARGS, int a_page) {
+		Container::Manager::GetSingleton()->DisplayPage(a_page);
+	}
+
 	std::vector<int> GetSimpleItemAdderVersion(STATIC_ARGS) {
 		return { Version::MAJOR, Version::MINOR, Version::PATCH };
 	}
@@ -45,6 +49,7 @@ namespace Functions {
 		BIND(SearchItem);
 		BIND(ToggleSetting);
 		BIND(GetSimpleItemAdderVersion);
+		BIND(DisplayPage);
 	}
 
 	bool RegisterFunctions(VM* a_vm) {
