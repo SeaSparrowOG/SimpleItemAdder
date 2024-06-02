@@ -267,8 +267,7 @@ namespace Container {
 			if (vectorEnd > vectorResult.size()) vectorEnd = vectorResult.size() - 1;
 		}
 
-		_loggerInfo("----------------\nSize: {}\nStart: {}\nEnd: {}\n----------------", vectorResult.size(), vectorStart, vectorEnd);
-		for (;vectorStart < vectorEnd; ++vectorStart) {
+		for (;vectorStart <= vectorEnd; ++vectorStart) {
 			auto* obj = vectorResult.at(vectorStart);
 			if (!obj) continue;
 			this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
@@ -293,7 +292,8 @@ namespace Container {
 	void Manager::DisplayPage(uint64_t a_pageNum) {
 		if (!quest || !container) return;
 		this->container->ResetInventory(false);
-		if (a_pageNum > 1000) a_pageNum = 1000;
+		auto maxPage = this->vectorResult.size() / this->maxResults;
+		if (a_pageNum > maxPage) a_pageNum = maxPage;
 
 		auto vectorSize = this->vectorResult.size();
 		size_t vectorStart = 0;
@@ -304,13 +304,12 @@ namespace Container {
 			if (vectorEnd > vectorSize) vectorEnd = vectorSize - 1;
 		}
 
-		for (;vectorStart < vectorEnd; ++vectorStart) {
+		for (;vectorStart <= vectorEnd; ++vectorStart) {
 			auto* obj = vectorResult.at(vectorStart);
 			if (!obj) continue;
 			this->container->AddObjectToContainer(obj, nullptr, 1, nullptr);
 		}
 
-		_loggerInfo("----------------\nSize: {}\nStart: {}\nEnd: {}\n----------------", vectorSize, vectorStart, vectorEnd);
 		auto* vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
 		auto* handlePolicy = vm->GetObjectHandlePolicy();
 		if (!handlePolicy) return;
