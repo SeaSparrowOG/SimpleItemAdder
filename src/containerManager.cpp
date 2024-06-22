@@ -76,8 +76,16 @@ namespace {
 		return true;
 	}
 
+	auto VectorContainsName(std::string a_string, std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>>* a_vec) {
+		auto response = a_vec->end();
+		for (auto it = a_vec->begin(); it != a_vec->end(); ++it) {
+			if ((*it).first == a_string) return it;
+		}
+		return response;
+	}
+
 	template <typename T>
-	void FillMap(std::unordered_map<std::string, std::vector<RE::TESBoundObject*>>* currentMap) {
+	void FillMap(std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>>* currentMap) {
 		auto& itemArray = RE::TESDataHandler::GetSingleton()->GetFormArray<T>();
 
 		for (T* obj : itemArray) {
@@ -91,19 +99,26 @@ namespace {
 			}
 
 			auto formattedName = clib_util::string::tolower(objName);
-			if ((*currentMap).contains(formattedName)) {
-				(*currentMap)[formattedName].push_back(boundObject);
+			auto it = VectorContainsName(formattedName, currentMap);
+			if (it != currentMap->end()) {
+				(*it).second.push_back(obj);
 			}
 			else {
 				std::vector<RE::TESBoundObject*> boundArray{ boundObject };
-				(*currentMap).try_emplace(formattedName, boundArray);
+				auto newPair = std::make_pair(formattedName, boundArray);
+				currentMap->push_back(newPair);
 			}
 		}
+
+		std::sort(currentMap->begin(), currentMap->end(), [&](std::pair<std::string, std::vector<RE::TESBoundObject*>>& a, std::pair<std::string, std::vector<RE::TESBoundObject*>>& b) {
+		return a.first < b.first;
+		});
 	}
 }
 
 namespace Container {
 	bool Manager::InitializeMaps() {
+		FillMap<RE::TESAmmo>(&this->weaponMap);
 		FillMap<RE::TESObjectWEAP>(&this->weaponMap);
 		FillMap<RE::TESObjectARMO>(&this->armorMap);
 		FillMap<RE::TESObjectBOOK>(&this->bookMap);
@@ -154,7 +169,7 @@ namespace Container {
 		if (!this->quest || !this->container) return false;
 
 		this->vectorResult.clear();
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>>* target = nullptr;
+		std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>>* target = nullptr;
 		switch (a_type) {
 		case kWeapon:
 			target = &this->weaponMap;

@@ -23,12 +23,12 @@ namespace Container {
 		void SetQuest(std::string a_id, std::string a_modName);
 
 	private:
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> weaponMap;
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> armorMap;
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> bookMap;
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> miscMap;
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> ingredientMap;
-		std::unordered_map<std::string, std::vector<RE::TESBoundObject*>> consumableMap;
+		std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>> weaponMap;
+		std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>> armorMap;
+		std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>> bookMap;
+		std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>> miscMap;
+		std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>> ingredientMap;
+		std::vector<std::pair<std::string, std::vector<RE::TESBoundObject*>>> consumableMap;
 		RE::TESQuest* quest;
 		RE::TESObjectREFR* container;
 
