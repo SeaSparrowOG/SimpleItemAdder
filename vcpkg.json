@@ -1,21 +1,15 @@
 {
   "name": "simple-item-adder",
   "version-string": "1.0.0",
-  "description": "",
-  "homepage": "",
+  "description": "SKSE component of the Simple Item Adder mod.",
+  "homepage": "https://github.com/SeaSparrowOG/SimpleItemAdder",
   "license": "MIT",
   "dependencies": [
+    "boost-stl-interfaces",
+    "fmt",
     "rsm-binary-io",
     "spdlog",
-    "clib-util",
-    "xbyak",
-    "jsoncpp"
+    "xbyak"
   ],
-  "overrides": [
-    {
-      "name": "fmt",
-      "version": "9.1.0"
-    }
-  ],
-  "builtin-baseline": "b7dba7f9aad09a56900f21cd78cfda1258e54e38"
+  "builtin-baseline": "ea295dff0b3e9e9caeb49d1225dc7272d3231cf1"
 }
