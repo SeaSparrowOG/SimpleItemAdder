@@ -4,7 +4,7 @@ namespace Hooks
 {
 	void Install()
 	{
-		SKSE::AllocTrampoline(1024);
+		//SKSE::AllocTrampoline(1024);
 		//HookClass::GetSingleton()->Install();
 	}
 

@@ -97,7 +97,11 @@ namespace ContainerManager
     {
         kNoFilters = 0,
         kEnchanted = 1 << 0,
-        kUnenchanted = 1 << 1
+        kUnenchanted = 1 << 1,
+        kFilled = 1 << 2,
+		kEmpty = 1 << 3,
+        kRefillable = 1 << 4,
+		kSingleUse = 1 << 5,
     };
 
     inline SimpleFilter operator|(SimpleFilter lhs, SimpleFilter rhs) {
@@ -125,6 +129,7 @@ namespace ContainerManager
 
     struct StoredForm
     {
+        int32_t                            formValue;
         FormType                           formType;
         SimpleFilter                       formFilter;
         RE::TESBoundObject*                form;
@@ -139,12 +144,33 @@ namespace ContainerManager
 
 	struct Rule
 	{
-        FormType     acceptedFormTypes;
-        SimpleFilter acceptedFilters;
-		std::string  ruleName;
+        int          minGoldValue{ -1 };
+        int          maxGoldValue{ -1 };
+        int          minWarmthValue{ -1 };
+        int          maxWarmthValue{ -1 };
+        FormType     acceptedFormTypes{ FormType::kAll };
+        std::string  ruleName{ "UNDEFINED" };
+        SimpleFilter acceptedFilters{ SimpleFilter::kNoFilters };
 
-        Rule();
-
-        bool Matches(StoredForm* a_form);
+        std::vector<RE::BGSKeyword*> formKeywords{};
+        std::vector<RE::BGSKeyword*> effectKeywords{};
 	};
+
+    class RuleBuilder
+    {
+    public:
+        RuleBuilder();
+        int Build(); 
+
+		RuleBuilder& WithMinMaxValue(int a_min, int a_max);
+		RuleBuilder& WithMinMaxWarmthValue(int a_min, int a_max);
+		RuleBuilder& WithName(const std::string& a_name);
+		RuleBuilder& WithFormKeywords(std::vector<RE::BGSKeyword*> a_keywords);
+		RuleBuilder& WithEffectKeywords(std::vector<RE::BGSKeyword*> a_keywords);
+		RuleBuilder& WithFormType(FormType a_type);
+		RuleBuilder& WithFilters(SimpleFilter a_filters);
+
+    private:
+        Rule m_rule{};
+    };
 }

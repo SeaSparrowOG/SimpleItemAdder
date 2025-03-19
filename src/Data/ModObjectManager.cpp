@@ -17,8 +17,8 @@ namespace Data
 
 	void ModObjectManager::Reload()
 	{
+		LOG_DEBUG("Quest Name + Script Name: {} -> {}", QuestName, ScriptName);
 		const auto quest = RE::TESForm::LookupByEditorID<RE::TESQuest>(QuestName);
-
 		if (!quest) {
 			logger::warn("ModObjectManager: Failed to lookup quest: {}", QuestName);
 			return;
@@ -29,6 +29,7 @@ namespace Data
 
 	void ModObjectManager::Initialize(RE::TESQuest* a_quest)
 	{
+		LOG_DEBUG("Quest Name + Script Name: {} -> {}", QuestName, ScriptName);
 		const auto vm = RE::BSScript::Internal::VirtualMachine::GetSingleton();
 		if (!vm) {
 			logger::error("ModObjectManager: Failed to get VM");

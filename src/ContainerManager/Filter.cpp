@@ -1,27 +1,9 @@
 #include "Filter.h"
 
+#include "ContainerManager.h"
+
 namespace ContainerManager
 {
-	Rule::Rule() {
-		this->acceptedFormTypes = FormType::kAll;
-		this->acceptedFilters   = SimpleFilter::kNoFilters;
-		this->ruleName          = "UNDEFINED";
-	}
-
-	bool Rule::Matches(StoredForm* a_form) {
-		const auto currentType = a_form->formType;
-		if (currentType != kAll && !IsFormType(currentType, acceptedFormTypes)) {
-			return false;
-		}
-
-		const auto currentFilter = a_form->formFilter;
-		if (!IsSimpleFilter(currentFilter, acceptedFilters)) {
-			return false;
-		}
-
-		return true;
-	}
-
 	StoredForm::StoredForm(RE::TESBoundObject* a_form) {
 		if (!a_form) {
 			throw std::invalid_argument("Nullptr passed in StoredForm constructor: " + Utilities::EDID::GetEditorID(a_form));
@@ -30,6 +12,8 @@ namespace ContainerManager
 		if (!a_form->GetPlayable()) {
 			throw std::invalid_argument("Unplayable form passed in StoredForm constructor: " + Utilities::EDID::GetEditorID(a_form));
 		}
+
+		this->formFilter = SimpleFilter::kNoFilters;
 
 		std::vector<const RE::BGSKeyword*> foundFormKeywords = std::vector<const RE::BGSKeyword*>();
 		std::vector<const RE::BGSKeyword*> foundFormEffectKeywords = std::vector<const RE::BGSKeyword*>();
@@ -41,6 +25,7 @@ namespace ContainerManager
 			if (!weapon) {
 				throw new std::invalid_argument("Object passed in StoredForm evaluated as Weapon, but could not be cast as one: " + Utilities::EDID::GetEditorID(a_form));
 			}
+			this->formValue = weapon->value;
 
 			if (weapon->IsOneHandedSword()) {
 				this->formType = FormType::kSword;
@@ -81,7 +66,11 @@ namespace ContainerManager
 			}
 
 			if (const auto* enchantment = weapon->formEnchanting;  enchantment) {
+				formFilter |= SimpleFilter::kEnchanted;
 				effects = enchantment->effects;
+			}
+			else {
+				formFilter |= SimpleFilter::kUnenchanted;
 			}
 		}
 		else if (a_form->IsAmmo()) {
@@ -89,6 +78,7 @@ namespace ContainerManager
 			if (!ammo) {
 				throw new std::invalid_argument("Object passed in StoredForm evaluated as Ammo, but could not be cast as one: " + Utilities::EDID::GetEditorID(a_form));
 			}
+			this->formValue = ammo->value;
 
 			if (ammo->IsBolt()) {
 				this->formType = FormType::kBolt;
@@ -110,7 +100,11 @@ namespace ContainerManager
 			const auto* explosion = projectile ? projectile->data.explosionType : nullptr;
 			const auto* enchantment = explosion ? explosion->formEnchanting : nullptr;
 			if (enchantment) {
+				formFilter |= SimpleFilter::kEnchanted;
 				effects = enchantment->effects;
+			}
+			else {
+				formFilter |= SimpleFilter::kUnenchanted;
 			}
 		}
 		else if (a_form->IsArmor()) {
@@ -118,6 +112,7 @@ namespace ContainerManager
 			if (!armor) {
 				throw new std::invalid_argument("Object passed in StoredForm evaluated as Armor, but could not be cast as one: " + Utilities::EDID::GetEditorID(a_form));
 			}
+			this->formValue = armor->value;
 
 			const auto heavyArmorKeyword = RE::TESForm::LookupByEditorID("ArmorHeavy"sv);
 			const auto lightArmorKeyword = RE::TESForm::LookupByEditorID("ArmorLight"sv);
@@ -150,9 +145,11 @@ namespace ContainerManager
 			}
 
 			if (const auto* enchantment = armor->formEnchanting; enchantment) {
-				if (!enchantment->effects.empty()) {
-					effects = enchantment->effects;
-				}
+				this->formFilter |= SimpleFilter::kEnchanted;
+				effects = enchantment->effects;
+			}
+			else {
+				this->formFilter |= SimpleFilter::kUnenchanted;
 			}
 
 			const auto armorKeywordCount = armor->numKeywords;
@@ -169,6 +166,7 @@ namespace ContainerManager
 			if (!bookForm) {
 				throw new std::invalid_argument("Object passed in StoredForm evaluated as Book, but could not be cast as one: " + Utilities::EDID::GetEditorID(a_form));
 			}
+			this->formValue = bookForm->value;
 
 			if (bookForm->TeachesSkill()) {
 				this->formType = FormType::kSkillBook;
@@ -184,12 +182,64 @@ namespace ContainerManager
 				this->formType = FormType::kNote;
 			}
 			else {
-				throw new std::invalid_argument("Object passed in StoredForm evaluated as a Book, but is not a note, skill book, or spell tome (or book): " + Utilities::EDID::GetEditorID(a_form));
+				this->formType = FormType::kBook;
+			}
+		}
+		else if (a_form->IsSoulGem()) {
+			const auto* soulGemForm = a_form->As<RE::TESSoulGem>();
+			if (!soulGemForm) {
+				throw new std::invalid_argument("Object passed in StoredForm evaluated as Soul Gem, but could not be cast as one: " + Utilities::EDID::GetEditorID(a_form));
+			}
+			this->formType = FormType::kSoulGem;
+			this->formValue = soulGemForm->value;
+
+			const auto formKeywordCount = soulGemForm->numKeywords;
+			if (formKeywordCount > 0) {
+				auto** keywords = soulGemForm->keywords;
+				for (const auto* keyword : std::span(keywords, formKeywordCount)) {
+					if (std::find(foundFormKeywords.begin(), foundFormKeywords.end(), keyword) != foundFormKeywords.end()) {
+						foundFormKeywords.push_back(keyword);
+					}
+				}
+			}
+
+			const auto* dobj = RE::BGSDefaultObjectManager::GetSingleton();
+			if (!dobj) {
+				logger::error("Failed to get Default Object Manager in StoredForm constructor. You will crash later and it won't be my fault.");
+				throw new std::exception("Failed to get Default Object Manager in StoredForm constructor.");
+			}
+
+			const auto* reusableSoulGemKeyword = dobj->GetObject<RE::BGSKeyword>(RE::DEFAULT_OBJECT::kKeywordReusableSoulGem);
+			if (!reusableSoulGemKeyword) {
+				logger::error("Failed to get the default Reusable Soul Gem keyword. You will (probably) crash later.");
+				throw new std::exception("Failed to get the default Reusable Soul Gem keyword. You will (probably) crash later.");
+			}
+
+			if (soulGemForm->GetContainedSoul() != RE::SOUL_LEVEL::kNone) {
+				this->formFilter |= SimpleFilter::kFilled;
+			}
+			if (soulGemForm->HasKeyword(reusableSoulGemKeyword->formID)) {
+				this->formFilter |= SimpleFilter::kRefillable;
 			}
 		}
 		// I hate the 4 letter abbreviation more than you, it's the game record type.
+		else if (const auto* misc = a_form->As<RE::TESObjectMISC>(); misc) {
+			this->formType = FormType::kMisc;
+			this->formValue = misc->value;
+
+			const auto formKeywordCount = misc->numKeywords;
+			if (formKeywordCount > 0) {
+				auto** keywords = misc->keywords;
+				for (const auto* keyword : std::span(keywords, formKeywordCount)) {
+					if (std::find(foundFormKeywords.begin(), foundFormKeywords.end(), keyword) != foundFormKeywords.end()) {
+						foundFormKeywords.push_back(keyword);
+					}
+				}
+			}
+		}
 		else if (const auto* scrl = a_form->As<RE::ScrollItem>(); scrl) {
 			this->formType = FormType::kScroll;
+			this->formValue = scrl->value;
 			effects = scrl->effects;
 		}
 		else if (const auto* alci = a_form->As<RE::AlchemyItem>(); alci) {
@@ -202,10 +252,22 @@ namespace ContainerManager
 			else {
 				this->formType = FormType::kPotion;
 			}
+
+			try {
+				this->formValue = static_cast<int32_t>(alci->CalculateTotalGoldValue());
+			}
+			catch (std::exception& e) {
+				logger::warn("Failed to calculate gold value for AlchemyItem: {}. Likely an overflow, defaulting to {}. Error: {}", e.what(),
+					Utilities::EDID::GetEditorID(a_form),
+					std::numeric_limits<int32_t>::max());
+				this->formValue = std::numeric_limits<int32_t>::max();
+			}
+
 			effects = alci->effects;
 		}
 		else if (const auto* ingr = a_form->As<RE::IngredientItem>(); ingr) {
 			this->formType = FormType::kIngredient;
+			this->formValue = ingr->value;
 			effects = ingr->effects;
 		}
 		else {
@@ -236,53 +298,77 @@ namespace ContainerManager
 	}
 
 	void StoredForm::PrettyPrint() {
-		LOG_DEBUG("{}", Utilities::EDID::GetEditorID(this->form));
-		switch (this->formType) {
-		case kDagger:
-			LOG_DEBUG("  >Dagger");
-			break;
-		case kSword:
-			LOG_DEBUG("  >Sword");
-			break;
-		case kAxe:
-			LOG_DEBUG("  >Axe");
-			break;
-		case kMace:
-			LOG_DEBUG("  >Mace");
-			break;
-		case kGreatsword:
-			LOG_DEBUG("  >Greatsword");
-			break;
-		case kWarAxe:
-			LOG_DEBUG("  >War Axe");
-			break;
-		case kWarhammer:
-			LOG_DEBUG("  >Warhammer");
-			break;
-		case kBow:
-			LOG_DEBUG("  >Bow (or crossbow fuck me)");
-			break;
-		case kStaff:
-			LOG_DEBUG("  >Staff");
-			break;
-		case kBolt:
-			LOG_DEBUG("  >Bolt");
-			break;
-		case kArrow:
-			LOG_DEBUG("  >Arrow");
-			break;
-		default:
-			LOG_DEBUG("Shouldn't be seeing this");
-			break;
+		logger::info("{}", Utilities::EDID::GetEditorID(this->form));
+		if (this->formValue > 0) {
+			logger::info("  Value: {}", this->formValue);
 		}
-		LOG_DEBUG("  Form keywords:");
-		for (const auto* keyword : this->formKeywords) {
-			LOG_DEBUG("    >{}", keyword->GetFormEditorID());
+
+		if (!this->formKeywords.empty()) {
+			logger::info("  Form keywords:");
+			for (const auto* keyword : this->formKeywords) {
+				logger::info("    >{}", keyword->GetFormEditorID());
+			}
 		}
-		LOG_DEBUG("  Effect keywords");
-		for (const auto* keyword : this->formEffectKeywords) {
-			LOG_DEBUG("    >{}", keyword->GetFormEditorID());
+
+		if (!this->formEffectKeywords.empty()) {
+			logger::info("  Effect keywords");
+			for (const auto* keyword : this->formEffectKeywords) {
+				logger::info("    >{}", keyword->GetFormEditorID());
+			}
 		}
-		LOG_DEBUG("---------------------------------------------------------");
+		logger::info("---------------------------------------------------------");
+	}
+
+	RuleBuilder::RuleBuilder() {
+		this->m_rule = Rule();
+	}
+
+	int RuleBuilder::Build() {
+		auto result = std::make_unique<Rule>(m_rule);
+		return ContainerManager::GetSingleton()->AddRule(std::move(result));
+	}
+
+	RuleBuilder& RuleBuilder::WithMinMaxValue(int a_min, int a_max)
+	{
+		this->m_rule.minGoldValue = a_min;
+		this->m_rule.maxGoldValue = a_max;
+		return *this;
+	}
+
+	RuleBuilder& RuleBuilder::WithMinMaxWarmthValue(int a_min, int a_max)
+	{
+		this->m_rule.minWarmthValue = a_min;
+		this->m_rule.maxWarmthValue = a_max;
+		return *this;
+	}
+
+	RuleBuilder& RuleBuilder::WithName(const std::string& a_name)
+	{
+		this->m_rule.ruleName = a_name;
+		return *this;
+	}
+
+	RuleBuilder& RuleBuilder::WithFormKeywords(std::vector<RE::BGSKeyword*> a_keywords)
+	{
+		this->m_rule.formKeywords = a_keywords;
+		return *this;
+	}
+
+	RuleBuilder& RuleBuilder::WithEffectKeywords(std::vector<RE::BGSKeyword*> a_keywords)
+	{
+		this->m_rule.effectKeywords = a_keywords;
+		return *this;
+	}
+
+	RuleBuilder& RuleBuilder::WithFormType(FormType a_type)
+	{
+		this->m_rule.acceptedFormTypes = a_type;
+		return *this;
+	}
+
+	RuleBuilder& RuleBuilder::WithFilters(SimpleFilter a_filters)
+	{
+		this->m_rule.acceptedFilters = a_filters;
+		return *this;
 	}
 }

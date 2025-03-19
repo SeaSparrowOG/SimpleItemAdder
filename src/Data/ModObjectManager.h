@@ -1,39 +1,12 @@
 #pragma once
 
-namespace
-{
-	static constexpr auto MakeQuestName() {
-		constexpr std::string_view name = Plugin::NAME;
-		constexpr std::string_view suffix = "_ModObjectsQuest";
-
-		std::array<char, name.size() + suffix.size() + 1> buffer{};
-		std::copy(name.begin(), name.end(), buffer.begin());
-		std::copy(suffix.begin(), suffix.end(), buffer.begin() + name.size());
-
-		return buffer;
-	}
-
-	static constexpr auto MakeScriptName() {
-		constexpr std::string_view name = Plugin::NAME;
-		constexpr std::string_view suffix = "_ModObjectsScript";
-
-		std::array<char, name.size() + suffix.size() + 1> buffer{};
-		std::copy(name.begin(), name.end(), buffer.begin());
-		std::copy(suffix.begin(), suffix.end(), buffer.begin() + name.size());
-
-		return buffer;
-	}
-}
-
 namespace Data
 {
 	class ModObjectManager : public Utilities::Singleton::EventClass<ModObjectManager, RE::TESQuestInitEvent>
 	{
 	public:
-		static constexpr auto QuestNameArray = MakeQuestName();
-		static constexpr std::string_view QuestName{ QuestNameArray.data(), QuestNameArray.size() };
-		static constexpr auto ScriptNameArray = MakeScriptName();
-		static constexpr std::string_view ScriptName{ ScriptNameArray.data(), ScriptNameArray.size() };
+		const std::string QuestName = fmt::format("{}_ModObjectsQuest"sv, Plugin::NAME);
+		const std::string ScriptName = fmt::format("{}_ModObjectsScript"sv, Plugin::NAME);
 		
 		RE::BSEventNotifyControl ProcessEvent(
 			const RE::TESQuestInitEvent* a_event,

@@ -4,13 +4,32 @@
 
 namespace ContainerManager
 {
+constexpr auto BYTE_TO_MEGABYTE = 1048576.0f;;
+
     class ContainerManager : public Utilities::Singleton::ISingleton<ContainerManager>
     {
     public:
-        bool InitializeMembers();
+        bool InitializeMembers(); 
+        
+        template <typename T>
+        void StoreFormInArray(T* a_form, std::vector<StoredForm>& a_storage) {
+            if (!a_form || !a_form->GetPlayable()) {
+                return;
+            }
 
-        int  SaveFilter(std::unique_ptr<Rule>&& a_newFilter);
-        bool OpenContainer(std::vector<int>& a_filters);
+            try {
+                StoredForm createdForm = StoredForm(a_form);
+                a_storage.push_back(std::move(createdForm));
+            }
+            catch (std::invalid_argument& e) {
+                logger::warn("{}", e.what());
+            }
+            catch (std::exception& e) {
+                logger::warn("{}", e.what());
+            }
+        }
+
+        int AddRule(std::unique_ptr<Rule>&& a_rule);
 
     private:
         std::vector<StoredForm> validWeapons{};     // Weapons, Ammo, Staves

@@ -2,8 +2,8 @@
 
 namespace ContainerManager
 {
-    bool ContainerManager::InitializeMembers()
-    {
+    bool ContainerManager::InitializeMembers() {
+        const auto then = std::chrono::high_resolution_clock::now();
         auto* dataHandler = RE::TESDataHandler::GetSingleton();
         if (!dataHandler) {
             logger::error("Failed to get the Data Handler! You are likely going to crash later and it won't be my fault.");
@@ -24,40 +24,86 @@ namespace ContainerManager
             return true;
         }
 
-        LOG_DEBUG("Patching weapons...");
+        std::vector<StoredForm> tempContainer{};
+
+        // Note - Repetition follows. I haven't decided if/how to add additional filtering.
         const auto& weaponArray = dataHandler->GetFormArray<RE::TESObjectWEAP>();
-        for (auto* weap : weaponArray) {
-            if (!weap || !weap->GetPlayable() || weap->IsBound()) {
-                continue;
-            }
-
-            const auto* weapEquipSlot = weap->GetEquipSlot();
-            if (weapEquipSlot != eitherHandEquip && weapEquipSlot != rightHandEquip && weapEquipSlot != leftHandEquip) {
-                continue;
-            }
-
-            try {
-                StoredForm createdForm = StoredForm(weap);
-                validWeapons.push_back(std::move(createdForm));
-            }
-            catch (std::exception& e) {
-                logger::warn("{}", e.what());
-            }
+        for (auto* form : weaponArray) {
+            StoreFormInArray<RE::TESObjectWEAP>(form, tempContainer);
         }
 
-        for (auto& thing : this->validWeapons) {
-            thing.PrettyPrint();
+        const auto& ammoArray = dataHandler->GetFormArray<RE::TESAmmo>();
+        for (auto* form : ammoArray) {
+            StoreFormInArray<RE::TESAmmo>(form, tempContainer);
         }
+
+        const auto& armorArray = dataHandler->GetFormArray<RE::TESObjectARMO>();
+        for (auto* form : armorArray) {
+            StoreFormInArray<RE::TESObjectARMO>(form, tempContainer);
+        }
+
+        const auto& bookArray = dataHandler->GetFormArray<RE::TESObjectBOOK>();
+        for (auto* form : bookArray) {
+            StoreFormInArray<RE::TESObjectBOOK>(form, tempContainer);
+        }
+
+        const auto& scrollArray = dataHandler->GetFormArray<RE::ScrollItem>();
+        for (auto* form : scrollArray) {
+            StoreFormInArray<RE::ScrollItem>(form, tempContainer);
+        }
+
+        const auto& ingredientArray = dataHandler->GetFormArray<RE::IngredientItem>();
+        for (auto* form : ingredientArray) {
+            StoreFormInArray<RE::IngredientItem>(form, tempContainer);
+        }
+
+        const auto& foodStuffArray = dataHandler->GetFormArray<RE::AlchemyItem>();
+        for (auto* form : foodStuffArray) {
+            StoreFormInArray<RE::AlchemyItem>(form, tempContainer);
+        }
+
+        const auto& soulGemArray = dataHandler->GetFormArray<RE::TESSoulGem>();
+        for (auto* form : soulGemArray) {
+            StoreFormInArray<RE::TESSoulGem>(form, tempContainer);
+        }
+
+        const auto& miscArray = dataHandler->GetFormArray<RE::TESObjectMISC>();
+        for (auto* form : miscArray) {
+            StoreFormInArray<RE::TESObjectMISC>(form, tempContainer);
+        }
+
+        /*
+        std::sort(tempContainer.begin(), tempContainer.end(), [](const StoredForm& lhs, const StoredForm& rhs) {
+            return lhs.formValue < rhs.formValue;
+        });
+        */
+
+        const auto now = std::chrono::high_resolution_clock::now();
+        const auto dur = now - then;
+        const auto result = std::chrono::duration_cast<std::chrono::milliseconds>(dur).count();
+
+        size_t contSize = tempContainer.size();
+        logger::info("Stored {} forms in {}ms.", contSize, result);
+
+        float memoryBytes = 0.0f;
+        if (tempContainer.size() > 0) {
+            float contItemSize = static_cast<float>(sizeof(tempContainer.at(0)));
+            memoryBytes = contItemSize * contSize / BYTE_TO_MEGABYTE; //hello floating point error
+        }
+
+        logger::info("Memory used: {0:.3f}MBs", memoryBytes);
+        logger::info("---------------------------------------------------------");
+
         return true;
     }
 
-    int ContainerManager::SaveFilter(std::unique_ptr<Rule>&& a_newFilter) {
-        (void)a_newFilter;
-        return -1;
-    }
+    int ContainerManager::AddRule(std::unique_ptr<Rule>&& a_rule) {
+        if (this->storedFilters.size() >= std::numeric_limits<int>::max()) {
+            logger::warn("Rule limit reached. How did you manage that?");
+            storedFilters.clear();
+        }
 
-    bool ContainerManager::OpenContainer(std::vector<int>& a_filters) {
-        (void)a_filters;
-        return false;
+        this->storedFilters.push_back(std::move(a_rule));
+        return static_cast<int>(storedFilters.size() - 1);
     }
 }
