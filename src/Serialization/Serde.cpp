@@ -1,26 +1,56 @@
 #include "Serde.h"
 
-#include "Hooks/Hooks.h"
+#include "ContainerManager/ContainerManager.h"
+#include "ContainerManager/Filter.h" // Probably comes with the ContainerManager.h, but #pragma once allows me not to care.
+
+namespace
+{
+	bool write_string(SKSE::SerializationInterface* a_intfc, const std::string& a_str)
+	{
+		size_t size = a_str.length();
+		return a_intfc->WriteRecordData(size) && a_intfc->WriteRecordData(a_str.data(), size);
+	}
+
+	bool read_string(SKSE::SerializationInterface* a_intfc, std::string& a_str)
+	{
+		size_t size;
+		if (!a_intfc->ReadRecordData(size)) {
+			return false;
+		}
+		a_str.resize(size);
+		return a_intfc->ReadRecordData(a_str.data(), size);
+	}
+}
 
 namespace Serialization {
 	void SaveCallback(SKSE::SerializationInterface* a_intfc)
 	{
-		if (!a_intfc->OpenRecord(RecordType, Version)) {
-			logger::error("Failed to open record for RecordType"sv);
+		if (!a_intfc->OpenRecord(StoredRecordType, Version)) {
+			logger::error("Failed to open record for StoredRecordType"sv);
 			return;
 		}
 
-		RE::TESForm* exampleForm = nullptr;
-		if (exampleForm) {
-			if (!a_intfc->WriteRecordData(exampleForm->formID)) {
-				logger::error("Failed to write FormID ({:08X})"sv, exampleForm->formID);
-				return;
-			}
+		const auto manager = ContainerManager::ContainerManager::GetSingleton();
+		assert(manager);
+		if (!manager) {
+			logger::error("Failed to get the container manager. Save aborted."sv);
+			return;
 		}
-		else {
-			RE::FormID nullID = 0x0;
-			if (!a_intfc->WriteRecordData(nullID)) {
-				logger::error("Failed to write FormID ({:08X})"sv, nullID);
+
+		const auto definitions = manager->GetPapyrusRulesDefinitions();
+		if (definitions.empty()) {
+			return;
+		}
+
+		const auto definitionsCount = static_cast<int>(definitions.size());
+		if (!a_intfc->WriteRecordData(definitionsCount)) {
+			logger::error("Failed to write record data for definitions count."sv);
+			return;
+		}
+
+		for (const auto& [index, definition] : definitions) {
+			if (!a_intfc->WriteRecordData(index) || !write_string(a_intfc, definition)) {
+				logger::error("Failed to write record data for definition {} -> {}"sv, index, definition);
 				return;
 			}
 		}
@@ -33,27 +63,38 @@ namespace Serialization {
 		std::uint32_t length;
 		while (a_intfc->GetNextRecordInfo(type, version, length)) {
 			if (version != Version) {
-				logger::error("Loaded data is incompatible with plugin version!"sv);
+				logger::error("Loaded data is incompatible with plugin version."sv);
 			}
 
-			if (type == RecordType) {
-				RE::FormID storedID;
-				if (!a_intfc->ReadRecordData(storedID)) {
-					logger::error("Failed to read stored FormID"sv);
+			const auto manager = ContainerManager::ContainerManager::GetSingleton();
+			assert(manager);
+			if (!manager) {
+				logger::error("Failed to get the container manager. Save aborted."sv);
+				return;
+			}
+
+			manager->ResetPapyrusRules();
+
+			if (type == StoredRecordType) {
+				size_t size = 0;
+				if (!a_intfc->ReadRecordData(size)) {
+					logger::error("Failed to read record data for definitions count."sv);
 					return;
 				}
 
-				RE::FormID currentID;
-				if (!a_intfc->ResolveFormID(storedID, currentID)) {
-					logger::error("Failed to resolve FormID ({:08X})"sv, storedID);
-					return;
+				for (size_t i = 0; i < size; ++i) {
+					std::string storedString;
+					if (read_string(a_intfc, storedString)) {
+						logger::info("Loaded rule: {}"sv, storedString);
+					}
+					else {
+						logger::error("Failed to read stored string."sv);
+						return;
+					}
 				}
-
-				auto* resolvedForm = RE::TESForm::LookupByID(currentID);
-				if (!resolvedForm) {
-					logger::error("Failed to find appropriate form ({:08X})", currentID);
-					return;
-				}
+			}
+			else {
+				logger::warn("Unknown record type: {}"sv, DecodeTypeCode(type));
 			}
 		}
 	}

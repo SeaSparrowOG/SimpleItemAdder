@@ -72,11 +72,9 @@ namespace ContainerManager
             StoreFormInArray<RE::TESObjectMISC>(form, tempContainer);
         }
 
-        /*
         std::sort(tempContainer.begin(), tempContainer.end(), [](const StoredForm& lhs, const StoredForm& rhs) {
             return lhs.formValue < rhs.formValue;
         });
-        */
 
         const auto now = std::chrono::high_resolution_clock::now();
         const auto dur = now - then;
@@ -98,12 +96,27 @@ namespace ContainerManager
     }
 
     int ContainerManager::AddRule(std::unique_ptr<Rule>&& a_rule) {
-        if (this->storedFilters.size() >= std::numeric_limits<int>::max()) {
+		auto storedSize = this->storedFilters.size();
+        if (storedSize >= std::numeric_limits<int>::max()) {
             logger::warn("Rule limit reached. How did you manage that?");
-            storedFilters.clear();
+            this->storedFilters.clear();
+            storedSize = 0;
         }
 
-        this->storedFilters.push_back(std::move(a_rule));
-        return static_cast<int>(storedFilters.size() - 1);
+		const auto index = static_cast<int>(storedSize);
+		this->storedFilters.push_back(std::move(a_rule));
+        return index - 1;
+    }
+
+    void ContainerManager::ResetPapyrusRules() {
+        this->storedPapyrusFilters.clear();
+    }
+
+    std::vector<std::pair<int, std::string>> ContainerManager::GetPapyrusRulesDefinitions() {
+        auto response = std::vector<std::pair<int, std::string>>();
+		for (const auto& [index, rule] : storedPapyrusFilters) {
+			response.push_back(std::make_pair(index, rule->ruleName));
+		}
+        return response;
     }
 }

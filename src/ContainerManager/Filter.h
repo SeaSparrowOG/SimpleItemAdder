@@ -150,6 +150,8 @@ namespace ContainerManager
         int          maxWarmthValue{ -1 };
         FormType     acceptedFormTypes{ FormType::kAll };
         std::string  ruleName{ "UNDEFINED" };
+        std::string  formName{ "" };
+        std::string  originalFilterString{ "" };
         SimpleFilter acceptedFilters{ SimpleFilter::kNoFilters };
 
         std::vector<RE::BGSKeyword*> formKeywords{};
@@ -162,6 +164,8 @@ namespace ContainerManager
         RuleBuilder();
         int Build(); 
 
+		RuleBuilder& WithOriginalFilterString(const std::string& a_string);
+		RuleBuilder& WithFormNameFilter(const std::string& a_string);
 		RuleBuilder& WithMinMaxValue(int a_min, int a_max);
 		RuleBuilder& WithMinMaxWarmthValue(int a_min, int a_max);
 		RuleBuilder& WithName(const std::string& a_name);
@@ -173,4 +177,79 @@ namespace ContainerManager
     private:
         Rule m_rule{};
     };
+
+    namespace Helpers
+    {
+        struct SanitizedPair
+        {
+            std::string key{ "UNDEFINED" };
+            std::string value{ "UNDEFINED" };
+
+            SanitizedPair(const std::string& a_key, const std::string& a_value);
+
+        private:
+            static constexpr std::array valid_keys
+            {
+                "name",
+                "goldvalue",
+                "warmth",
+                "type",
+                "filter"
+            };
+
+            static constexpr bool IsKeyValid(const std::string& a_key) {
+                if (a_key.empty()) {
+                    return false;
+                }
+                return std::find(valid_keys.begin(), valid_keys.end(), a_key) != valid_keys.end();
+            }
+        };
+
+		/// <summary>
+		/// Parsed Tokens are "holders" for the filter that will be made from the given condition. 
+		/// If the filter string is invalid, the constructor will throw. 
+		/// Otherwise, you can call ParseToken to get the resulting handle. 
+		/// Note that ParseToken can also throw if given null keywords.
+		/// </summary>
+		struct ParsedToken
+		{
+		private:
+			int32_t parsedMinValue{ -1 };
+			int32_t parsedMaxValue{ -1 };
+			int32_t parsedMinWarmthValue{ -1 };
+			int32_t parsedMaxWarmthValue{ -1 };
+
+			std::string                    parsedName{ "UNDEFINED" };
+			std::string                    parsedSubstring{ "" };
+
+			std::vector<RE::BGSKeyword*>   parsedFormKeywords{};
+			std::vector<RE::BGSKeyword*>   parsedEffectKeywords{};
+
+			FormType     acceptedFormType{ FormType::kAll };
+			SimpleFilter acceptedFilters{ SimpleFilter::kNoFilters };
+
+			RuleBuilder  builder{};
+
+		public:
+            ParsedToken(const std::vector<SanitizedPair>& a_pairs,
+                std::vector<RE::BGSKeyword*> a_formKeywords,
+                std::vector<RE::BGSKeyword*> a_effectKeywords);
+
+            int ParseToken(const std::string& originalFilter);
+		};
+
+		/// <summary>
+		/// Transforms a given string from Papyrus into a usable token. Deletes whitespaces within reason.
+		/// </summary>
+		/// <param name="input">The given string.</param>
+		/// <param name="mainDelimiter">The main character to use as a delimiter between different filters. Default(|)</param>
+		/// <param name="pairDelimiter">The character to use as a delimiter for the filter's key and value. Default(:)</param>
+		/// <returns>A proper token.</returns>
+		/// <exception cref="std::invalid_argument If the given string contains errors. Different exceptions contain more info."></exception>
+        ParsedToken TokenizeFilter(const std::string& input,
+            const std::vector<RE::BGSKeyword*>& a_formKeywords,
+            const std::vector<RE::BGSKeyword*>& a_effectKeywords,
+            char mainDelimiter = '|',
+            char pairDelimiter = ':');
+    }
 }

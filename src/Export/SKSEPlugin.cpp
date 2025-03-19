@@ -1,7 +1,6 @@
 #include "ContainerManager/ContainerManager.h"
 #include "Data/ModObjectManager.h"
 #include "Events/Events.h"
-#include "Hooks/Hooks.h"
 #include "Papyrus/Papyrus.h"
 #include "Serialization/Serde.h"
 
@@ -83,25 +82,37 @@ extern "C" DLLEXPORT bool SKSEAPI SKSEPlugin_Load(const SKSE::LoadInterface* a_s
 	logger::info("{} v{}"sv, Plugin::NAME, Plugin::VERSION.string());
 	logger::info("Author: SeaSparrow"sv);
 	logger::info("=================================================");
+	logger::info("Performing startup tasks..."sv);
+	const auto then = std::chrono::high_resolution_clock::now();
 	SKSE::Init(a_skse);
 
+	logger::info("Checking runtime version..."sv);
 	const auto ver = a_skse->RuntimeVersion();
 	if (ver < SKSE::RUNTIME_1_6_1130) {
 		return false;
 	}
 
-	Hooks::Install();
-
+	logger::info("Registering Papyrus functions..."sv);
+	// Credit to PO3 for the Papyrus binding implementation.
+	// Nexus:  https://next.nexusmods.com/profile/powerofthree?gameId=1704
+	// Github: https://github.com/powerof3
 	SKSE::GetPapyrusInterface()->Register(Papyrus::RegisterFunctions);
 
+	logger::info("Registering messaging callbacks..."sv);
 	const auto messaging = SKSE::GetMessagingInterface();
 	messaging->RegisterListener(&MessageEventCallback);
 
+	logger::info("Registering serialization callbacks..."sv);
 	const auto serialization = SKSE::GetSerializationInterface();
 	serialization->SetUniqueID(Serialization::ID);
 	serialization->SetSaveCallback(&Serialization::SaveCallback);
 	serialization->SetLoadCallback(&Serialization::LoadCallback);
 	serialization->SetRevertCallback(&Serialization::RevertCallback);
 
+	const auto now = std::chrono::high_resolution_clock::now();
+	const auto elapsedMilliseconds = std::chrono::duration_cast<std::chrono::milliseconds>(now - then).count();
+
+	logger::info("Plugin successfully loaded in {}ms"sv, elapsedMilliseconds);
+	logger::info("=================================================");
 	return true;
 }

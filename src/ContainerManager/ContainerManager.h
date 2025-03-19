@@ -31,6 +31,9 @@ constexpr auto BYTE_TO_MEGABYTE = 1048576.0f;;
 
         int AddRule(std::unique_ptr<Rule>&& a_rule);
 
+        void                                     ResetPapyrusRules();
+		std::vector<std::pair<int, std::string>> GetPapyrusRulesDefinitions();
+
     private:
         std::vector<StoredForm> validWeapons{};     // Weapons, Ammo, Staves
         std::vector<StoredForm> validArmor{};       // Light, Heavy, Clothes, Shields
@@ -38,8 +41,10 @@ constexpr auto BYTE_TO_MEGABYTE = 1048576.0f;;
         std::vector<StoredForm> validIngestibles{}; // Potions, Poisons, Food, Ingredients
         std::vector<StoredForm> validMisc{};        // Miscellaneous and Soul Gems
 
-        // Stored Filters (wiped after each use)
-        std::vector<std::unique_ptr<Rule>> storedFilters{};
+        // Stored Filters. Persist across the entire session, but are wiped when the game is closed.
+        std::vector<std::unique_ptr<Rule>>             storedFilters{};
+        // Stored Papyrus Filters. Persist across game loads, but only after the game is saved.
+		std::unordered_map<int, std::unique_ptr<Rule>> storedPapyrusFilters{};
 
         // Pre-initialized Members
         // Survival Mode: Warmth
