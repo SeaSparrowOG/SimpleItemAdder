@@ -7,13 +7,18 @@ namespace
 {
 	bool write_string(SKSE::SerializationInterface* a_intfc, const std::string& a_str)
 	{
-		size_t size = a_str.length();
+		uint32_t size = a_str.length() <= std::numeric_limits<uint32_t>::max() ?
+			static_cast<uint32_t>(a_str.length()):
+			0;
+		if (size == 0) {
+			return false;
+		}
 		return a_intfc->WriteRecordData(size) && a_intfc->WriteRecordData(a_str.data(), size);
 	}
 
 	bool read_string(SKSE::SerializationInterface* a_intfc, std::string& a_str)
 	{
-		size_t size;
+		uint32_t size;
 		if (!a_intfc->ReadRecordData(size)) {
 			return false;
 		}
@@ -38,20 +43,18 @@ namespace Serialization {
 		}
 
 		const auto definitions = manager->GetPapyrusRulesDefinitions();
-		if (definitions.empty()) {
-			return;
-		}
-
-		const auto definitionsCount = static_cast<int>(definitions.size());
-		if (!a_intfc->WriteRecordData(definitionsCount)) {
-			logger::error("Failed to write record data for definitions count."sv);
-			return;
-		}
-
-		for (const auto& [index, definition] : definitions) {
-			if (!a_intfc->WriteRecordData(index) || !write_string(a_intfc, definition)) {
-				logger::error("Failed to write record data for definition {} -> {}"sv, index, definition);
+		if (!definitions.empty()) {
+			const auto definitionsCount = static_cast<int>(definitions.size());
+			if (!a_intfc->WriteRecordData(definitionsCount)) {
+				logger::error("Failed to write record data for definitions count."sv);
 				return;
+			}
+
+			for (const auto& [index, definition] : definitions) {
+				if (!a_intfc->WriteRecordData(index) || !write_string(a_intfc, definition)) {
+					logger::error("Failed to write record data for definition {} -> {}"sv, index, definition);
+					return;
+				}
 			}
 		}
 	}
@@ -111,7 +114,7 @@ namespace Serialization {
 		std::string sig;
 		sig.resize(SIZE);
 		char* iter = reinterpret_cast<char*>(&a_typeCode);
-		for (std::size_t i = 0, j = SIZE - 2; i < SIZE - 1; ++i, --j) {
+		for (std::size_t i = 0, j = SIZE - 1; i < SIZE; ++i, --j) {
 			sig[j] = iter[i];
 		}
 		return sig;

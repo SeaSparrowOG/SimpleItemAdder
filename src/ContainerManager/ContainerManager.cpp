@@ -105,7 +105,7 @@ namespace ContainerManager
 
 		const auto index = static_cast<int>(storedSize);
 		this->storedFilters.push_back(std::move(a_rule));
-        return index - 1;
+        return index; // We read index before inserting, so this is always correct. Don't -1.
     }
 
     void ContainerManager::ResetPapyrusRules() {
