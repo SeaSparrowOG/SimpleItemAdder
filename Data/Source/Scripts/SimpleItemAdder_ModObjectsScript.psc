@@ -1,0 +1,3 @@
+Scriptname SimpleItemAdder_ModObjectsScript Extends Quest
+
+ObjectReference Property SIA_SearchChest Auto
